@@ -435,6 +435,78 @@
       padding: 32px 0;
       font-size: 0.9rem;
     }
+
+    /* ================================
+       FEEDBACK SECTION
+    ================================ */
+    .feedback-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .feedback-col-header {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9a7250;
+      font-weight: bold;
+      padding-bottom: 14px;
+    }
+
+    .feedback-cell {
+      padding: 14px 16px 14px 0;
+      border-top: 1px solid #f0e8df;
+    }
+
+    .feedback-target {
+      padding: 14px 0 14px 16px;
+      border-top: 1px solid #f0e8df;
+    }
+
+    .feedback-metric-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #9a7250;
+      margin-bottom: 5px;
+    }
+
+    .feedback-actual-value {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #3b2a1a;
+      margin-right: 6px;
+    }
+
+    .feedback-target-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #9a7250;
+      margin-bottom: 5px;
+    }
+
+    .feedback-target-value {
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #5c3d1e;
+    }
+
+    .feedback-suggestion {
+      font-size: 0.82rem;
+      color: #7a5c3e;
+      margin-top: 7px;
+      line-height: 1.4;
+      font-style: italic;
+    }
+
+    .feedback-perfect {
+      text-align: center;
+      padding: 8px 0 4px;
+      color: #1e8449;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
   </style>
 </head>
 
@@ -568,6 +640,15 @@
 
 
     <!-- =====================================================================
+         FEEDBACK
+    ===================================================================== -->
+    <div id="feedback-section" class="card" style="display:none">
+      <h2>Last Shot Feedback</h2>
+      <div id="feedback-content"></div>
+    </div>
+
+
+    <!-- =====================================================================
          SHOT LOG
     ===================================================================== -->
     <div class="entries-header">
@@ -654,11 +735,11 @@
      * The same class is also added to the status cell in each entry card.
      */
     function getBrewTimeStatus(seconds) {
-      if (seconds < 20)  return { label: "Warning",   cls: "s-warning"   };
-      if (seconds <= 24) return { label: "Okay",       cls: "s-okay"      };
-      if (seconds <= 32) return { label: "Good",       cls: "s-good"      };
-      if (seconds <= 35) return { label: "Excellent",  cls: "s-excellent" };
-      return               { label: "Warning",   cls: "s-warning"   };
+      if (seconds < 20)  return { label: "Warning",  cls: "s-warning",   suggestion: "Grind finer or increase dose"      };
+      if (seconds <= 24) return { label: "Okay",      cls: "s-okay",      suggestion: "Try grinding slightly finer"      };
+      if (seconds <= 32) return { label: "Good",      cls: "s-good",      suggestion: "On track, small adjustments only" };
+      if (seconds <= 35) return { label: "Excellent", cls: "s-excellent", suggestion: "No changes needed"                };
+      return               { label: "Warning",  cls: "s-warning",   suggestion: "Grind coarser or reduce dose"    };
     }
 
 
@@ -794,10 +875,13 @@
     }
 
     function resetForm() {
-      beanNameInput.value      = "";
-      roastDateInput.value     = "";
-      grindInput.value         = "";
-      doseInput.value          = "";
+      const entries = loadEntries();
+      const last    = entries[0];   // newest is first (added with unshift)
+
+      beanNameInput.value      = last ? last.beanName  : "";
+      roastDateInput.value     = last ? last.roastDate : "";
+      grindInput.value         = last ? last.grind     : "";
+      doseInput.value          = last ? last.dose      : "";
       yieldInput.value         = "";
       brewTimeInput.value      = "";
       scoreInput.value         = "5";
@@ -935,6 +1019,118 @@
 
         entryList.appendChild(li);
       });
+
+      renderFeedback();
+    }
+
+
+    // =========================================================================
+    // FEEDBACK
+    // Analyzes the most recent entry and renders two-column suggestions.
+    // =========================================================================
+
+    function renderFeedback() {
+      const entries = loadEntries();
+      const section = document.getElementById("feedback-section");
+      const content = document.getElementById("feedback-content");
+
+      if (entries.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "";
+      const e = entries[0];
+
+      // Brew time
+      const timeResult    = getBrewTimeStatus(e.brewTime);
+      const timeExcellent = timeResult.cls === "s-excellent";
+
+      // Brew ratio
+      const ratioNum = parseFloat(e.ratio);
+      let ratioExcellent  = false;
+      let ratioCls        = "";
+      let ratioLabel      = "--";
+      let ratioSuggestion = "";
+      if (!isNaN(ratioNum)) {
+        if (ratioNum < 2) {
+          ratioCls        = "s-warning";
+          ratioLabel      = "Short";
+          ratioSuggestion = "Let the shot run longer or reduce dose";
+        } else if (ratioNum <= 2.5) {
+          ratioCls       = "s-excellent";
+          ratioLabel     = "Excellent";
+          ratioExcellent = true;
+          ratioSuggestion = "No changes needed";
+        } else {
+          ratioCls        = "s-warning";
+          ratioLabel      = "Long";
+          ratioSuggestion = "Stop the shot earlier or increase dose";
+        }
+      }
+
+      // Taste score
+      const score = e.score;
+      let scoreExcellent  = false;
+      let scoreCls        = "";
+      let scoreLabel      = "";
+      let scoreSuggestion = "";
+      if (score >= 8) {
+        scoreExcellent  = true;
+        scoreCls        = "s-excellent";
+        scoreLabel      = "Excellent";
+        scoreSuggestion = "No changes needed";
+      } else if (score >= 5) {
+        scoreCls        = "s-okay";
+        scoreLabel      = "Okay";
+        scoreSuggestion = "Minor adjustment — try one grind click finer or coarser depending on whether the shot tastes sour or bitter";
+      } else {
+        scoreCls        = "s-warning";
+        scoreLabel      = "Warning";
+        scoreSuggestion = "Large adjustment needed — try changing grind size by 2+ clicks";
+      }
+
+      if (timeExcellent && ratioExcellent && scoreExcellent) {
+        content.innerHTML = '<p class="feedback-perfect">Perfect shot — repeat exactly and see if it holds.</p>';
+        return;
+      }
+
+      content.innerHTML = `
+        <div class="feedback-grid">
+          <div class="feedback-col-header">Your Shot</div>
+          <div class="feedback-col-header">Ideal Range</div>
+
+          <div class="feedback-cell">
+            <div class="feedback-metric-label">Brew Time</div>
+            <span class="feedback-actual-value">${escapeHTML(e.brewTime)}s</span><span class="status-pill ${escapeHTML(timeResult.cls)}">${escapeHTML(timeResult.label)}</span>
+            <div class="feedback-suggestion">${escapeHTML(timeResult.suggestion)}</div>
+          </div>
+          <div class="feedback-target">
+            <div class="feedback-target-label">Excellent</div>
+            <div class="feedback-target-value">33–35s</div>
+          </div>
+
+          <div class="feedback-cell">
+            <div class="feedback-metric-label">Brew Ratio</div>
+            <span class="feedback-actual-value">1:${escapeHTML(e.ratio || "--")}</span><span class="status-pill ${escapeHTML(ratioCls)}">${escapeHTML(ratioLabel)}</span>
+            <div class="feedback-suggestion">${escapeHTML(ratioSuggestion)}</div>
+          </div>
+          <div class="feedback-target">
+            <div class="feedback-target-label">Excellent</div>
+            <div class="feedback-target-value">1:2 – 1:2.5</div>
+          </div>
+
+          <div class="feedback-cell">
+            <div class="feedback-metric-label">Taste Score</div>
+            <span class="feedback-actual-value">${escapeHTML(score)}/10</span><span class="status-pill ${escapeHTML(scoreCls)}">${escapeHTML(scoreLabel)}</span>
+            <div class="feedback-suggestion">${escapeHTML(scoreSuggestion)}</div>
+          </div>
+          <div class="feedback-target">
+            <div class="feedback-target-label">Excellent</div>
+            <div class="feedback-target-value">8–10</div>
+          </div>
+        </div>
+      `;
     }
 
 
