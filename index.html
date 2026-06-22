@@ -1,677 +1,551 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="night">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Espresso Tracker</title>
 
-  <style>
-    /* ================================
-       BASE RESET
-       Browsers have built-in default styles. We clear margin/padding so
-       our layout is predictable, and set box-sizing so padding is included
-       in an element's stated width (much easier to reason about).
-    ================================ */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+  <!-- Google Fonts: DM Sans (body) + Fraunces (headings) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet">
+
+  <!-- DaisyUI — loaded first so Tailwind utility classes override component styles -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN — injected after DaisyUI so utilities win on equal specificity -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['DM Sans', 'sans-serif'],
+          }
+        }
+      }
     }
+  </script>
+
+  <style>
+    /* =====================================================================
+       BASE
+    ===================================================================== */
+    :root { color-scheme: dark; }
 
     body {
-      font-family: Georgia, serif;
-      background: #fdf6ec;  /* warm off-white */
-      color: #3b2a1a;       /* dark brown */
-      padding: 40px 20px;
+      font-family: 'DM Sans', sans-serif !important;
+      background: #0f0f1a !important;
+      color: #e2e0f0 !important;
     }
 
-    /* ================================
-       PAGE CONTAINER
-       max-width caps how wide the layout gets on large monitors.
-       margin: 0 auto centers it horizontally.
-    ================================ */
-    .container {
-      max-width: 740px;
-      margin: 0 auto;
-    }
+    h1, h2, h3 { font-family: 'Fraunces', serif; }
 
-    h1 {
-      font-size: 2rem;
+    /* =====================================================================
+       STAT CARD
+       JS does `timeCard.className = "stat-card"` to reset status colors,
+       so every visual property for stat cards must live in this class —
+       no Tailwind classes on those elements.
+    ===================================================================== */
+    .stat-card {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 26px 16px;
+      border: 2px solid #2a2550;
       text-align: center;
-      margin-bottom: 6px;
+      transition: background-color 0.3s ease, border-color 0.3s ease,
+                  box-shadow 0.3s ease, transform 0.25s ease;
+    }
+    .stat-card:hover {
+      box-shadow: 0 0 32px rgba(124, 58, 237, 0.28);
+      border-color: rgba(124, 58, 237, 0.45) !important;
+      transform: translateY(-2px);
     }
 
-    .subtitle {
-      text-align: center;
-      color: #7a5c3e;
-      margin-bottom: 32px;
-      font-size: 0.95rem;
+    /* =====================================================================
+       CARD GLOW — for static cards (form, feedback)
+    ===================================================================== */
+    .card-glow {
+      transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.25s ease;
+    }
+    .card-glow:hover {
+      box-shadow: 0 0 36px rgba(124, 58, 237, 0.22);
+      border-color: rgba(124, 58, 237, 0.42) !important;
+      transform: translateY(-2px);
     }
 
-    /* ================================
-       CARD — the white rounded box used for the form
-    ================================ */
-    .card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 28px;
-      /* box-shadow gives the card a subtle "lifted" look */
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-      margin-bottom: 24px;
-    }
-
-    .card h2 {
-      font-size: 1.1rem;
-      margin-bottom: 20px;
-      color: #5c3d1e;
-    }
-
-    /* ================================
-       FORM GRID
-       CSS Grid lets us arrange form fields in two side-by-side columns.
-       Adding class "full" to a form-group makes it span both columns.
-    ================================ */
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;  /* two equal columns */
-      gap: 16px;
-    }
-
-    /* "1 / -1" means: start at column 1, end at the last column line */
-    .form-group.full {
-      grid-column: 1 / -1;
-    }
-
-    label {
-      display: block;           /* puts the label on its own line above the input */
-      font-size: 0.78rem;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: #5c3d1e;
-      margin-bottom: 5px;
-    }
-
-    /* Shared styles for all text-like inputs */
-    input[type="text"],
-    input[type="date"],
-    input[type="number"],
-    textarea {
+    /* =====================================================================
+       ADD SHOT BUTTON
+    ===================================================================== */
+    .btn-add {
       width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #d4b896;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-family: inherit;
-      color: #3b2a1a;
-      background: #fdf6ec;
-      outline: none;
-      /* transition makes the border color change animate smoothly */
-      transition: border-color 0.2s;
-    }
-
-    input:focus,
-    textarea:focus {
-      border-color: #8b5e3c;  /* darken border on focus */
-    }
-
-    textarea {
-      resize: vertical;   /* user can drag to make it taller, but not wider */
-      min-height: 72px;
-    }
-
-    /* ================================
-       TASTE SCORE SLIDER
-       <input type="range"> gives us a draggable slider.
-       We style it heavily because the browser defaults are ugly.
-    ================================ */
-    .slider-row {
+      margin-top: 0.5rem;
+      padding: 13px;
+      background: #7c3aed;
+      color: #ffffff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 22px rgba(124, 58, 237, 0.38);
+      transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
     }
-
-    .slider-label {
-      font-size: 0.8rem;
-      color: #9a7250;
-      min-width: 12px;  /* prevent layout shift as numbers change width */
+    .btn-add:hover {
+      background: #6d28d9;
+      box-shadow: 0 6px 30px rgba(124, 58, 237, 0.54);
     }
+    .btn-add:active { transform: scale(0.97); }
 
+    /* =====================================================================
+       RANGE SLIDER
+    ===================================================================== */
     input[type="range"] {
-      -webkit-appearance: none;  /* remove Safari/Chrome default styling */
+      -webkit-appearance: none;
+      appearance: none;
       flex: 1;
       height: 6px;
       border-radius: 3px;
-      /* JS updates this background gradient to show how far along the slider is */
-      background: #d4b896;
+      background: #2a2550;
       outline: none;
       cursor: pointer;
       border: none;
       padding: 0;
     }
-
-    /* The draggable circle — WebKit browsers (Chrome, Safari) */
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 20px;
       height: 20px;
       border-radius: 50%;
-      background: #6f3d14;
-      border: 2px solid #fff;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+      background: #7c3aed;
+      border: 2px solid #1a1a2e;
+      box-shadow: 0 0 10px rgba(124, 58, 237, 0.7);
+      cursor: pointer;
+      transition: transform 0.15s ease;
     }
-
-    /* The draggable circle — Firefox */
+    input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
     input[type="range"]::-moz-range-thumb {
       width: 20px;
       height: 20px;
       border-radius: 50%;
-      background: #6f3d14;
-      border: 2px solid #fff;
+      background: #7c3aed;
+      border: 2px solid #1a1a2e;
       cursor: pointer;
     }
 
-    .score-badge {
-      min-width: 40px;
-      text-align: center;
-      font-size: 1rem;
-      font-weight: bold;
-      color: #6f3d14;
+    /* =====================================================================
+       ANIMATIONS
+    ===================================================================== */
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ================================
-       ERROR MESSAGE
-       Reserve vertical space with min-height so the layout doesn't
-       jump when an error appears or disappears.
-    ================================ */
-    .error-message {
-      color: #b33a1a;
-      font-size: 0.82rem;
-      margin-top: 10px;
-      min-height: 18px;
-    }
+    /* =====================================================================
+       STATUS THEMES — applied dynamically by JS
+    ===================================================================== */
+    .s-warning { background: #1f0f18 !important; border-color: #e53935 !important; }
+    .s-warning .stat-card-value { color: #ff6b6b !important; }
+    .s-warning .status-pill { background: #3a1520; color: #ff6b6b; }
+    .s-warning .entry-stat-value { color: #ff6b6b; }
 
-    /* ================================
-       SUBMIT BUTTON
-    ================================ */
-    .btn-primary {
-      width: 100%;
-      padding: 13px;
-      background: #6f3d14;
-      color: #fff;
-      font-size: 1rem;
-      font-family: inherit;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 14px;
-      transition: background-color 0.2s;
-    }
+    .s-okay { background: #1f1a0a !important; border-color: #f39c12 !important; }
+    .s-okay .stat-card-value { color: #f5c842 !important; }
+    .s-okay .status-pill { background: #352a0f; color: #f5c842; }
+    .s-okay .entry-stat-value { color: #f5c842; }
 
-    .btn-primary:hover {
-      background: #5a3010;
-    }
+    .s-good { background: #0a1f12 !important; border-color: #27ae60 !important; }
+    .s-good .stat-card-value { color: #4ade80 !important; }
+    .s-good .status-pill { background: #0f3520; color: #4ade80; }
+    .s-good .entry-stat-value { color: #4ade80; }
 
-    /* ================================
-       STATS ROW
-       Two auto-calculated cards sitting between the form and the log.
-       They update live as the user types into the form.
-       flex makes them sit side-by-side; flex: 1 makes each take equal width.
-    ================================ */
-    .stats-row {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 28px;
-    }
+    .s-excellent { background: #130f2a !important; border-color: #7c3aed !important; }
+    .s-excellent .stat-card-value { color: #a78bfa !important; }
+    .s-excellent .status-pill { background: #201a45; color: #a78bfa; }
+    .s-excellent .entry-stat-value { color: #a78bfa; }
 
-    .stat-card {
-      flex: 1;           /* share available width equally */
-      background: #fff;
-      border-radius: 14px;
-      padding: 20px 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      border: 2px solid #e8ddd0;
-      text-align: center;
-      /* transition animates the color changes when the status changes */
-      transition: background-color 0.3s, border-color 0.3s;
-    }
-
-    .stat-card-label {
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #9a7250;
-      margin-bottom: 8px;
-    }
-
-    .stat-card-value {
-      font-size: 2rem;
-      font-weight: bold;
-      color: #3b2a1a;
-      line-height: 1;
-      margin-bottom: 6px;
-      transition: color 0.3s;
-    }
-
-    .stat-card-sub {
-      font-size: 0.75rem;
-      color: #9a7250;
-    }
-
-    /* The colored pill showing "Good", "Warning", etc. */
+    /* =====================================================================
+       STATUS PILL — used in stat cards and feedback
+    ===================================================================== */
     .status-pill {
       display: inline-block;
-      padding: 3px 14px;
+      padding: 2px 12px;
       border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      margin-top: 4px;
-      background: #f0e8df;
-      color: #9a7250;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      background: #252045;
+      color: #9b8ec4;
       transition: background-color 0.3s, color 0.3s;
     }
 
-    /* ================================
-       STATUS COLOR THEMES
-       JS adds one of these classes to the brew-time stat card and to each
-       entry's status cell. CSS handles all the color changes from there.
-    ================================ */
-
-    /* Warning: red */
-    .s-warning                          { background: #fff5f5; border-color: #e53935; }
-    .s-warning .stat-card-value         { color: #c0392b; }
-    .s-warning .status-pill             { background: #fde8e8; color: #c0392b; }
-    .s-warning .entry-stat-value        { color: #c0392b; }
-
-    /* Okay: amber */
-    .s-okay                             { background: #fffbf0; border-color: #f39c12; }
-    .s-okay .stat-card-value            { color: #d68910; }
-    .s-okay .status-pill                { background: #fef3cd; color: #d68910; }
-    .s-okay .entry-stat-value           { color: #d68910; }
-
-    /* Good: green */
-    .s-good                             { background: #f0fff5; border-color: #27ae60; }
-    .s-good .stat-card-value            { color: #1e8449; }
-    .s-good .status-pill                { background: #d5f5e3; color: #1e8449; }
-    .s-good .entry-stat-value           { color: #1e8449; }
-
-    /* Excellent: blue */
-    .s-excellent                        { background: #f0f7ff; border-color: #1a6ba0; }
-    .s-excellent .stat-card-value       { color: #1a6ba0; }
-    .s-excellent .status-pill           { background: #d6eaf8; color: #1a6ba0; }
-    .s-excellent .entry-stat-value      { color: #1a6ba0; }
-
-    /* ================================
-       ENTRIES SECTION HEADER
-    ================================ */
-    .entries-header {
-      display: flex;
-      justify-content: space-between;  /* title left, badge right */
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .entries-header h2 {
-      font-size: 1.1rem;
-      color: #5c3d1e;
-    }
-
-    .count-badge {
-      background: #6f3d14;
-      color: #fff;
-      border-radius: 20px;
-      padding: 2px 12px;
-      font-size: 0.8rem;
-    }
-
-    #entry-list {
-      list-style: none;  /* remove the default bullet points from <ul> */
-    }
-
-    /* ================================
-       ENTRY CARDS
-       Each logged shot gets one of these.
-    ================================ */
+    /* =====================================================================
+       JS-GENERATED ENTRY CARDS
+       All class names here come from renderEntries() template literals.
+    ===================================================================== */
     .entry-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 18px 20px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
-      /* fadeIn plays when a new card is added to the list */
-      animation: fadeIn 0.25s ease;
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 22px 24px;
+      margin-bottom: 14px;
+      border: 1px solid #2a2550;
+      animation: fadeInDown 0.3s ease;
+      transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.25s ease;
     }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to   { opacity: 1; transform: translateY(0); }
+    .entry-card:hover {
+      box-shadow: 0 0 28px rgba(124, 58, 237, 0.22);
+      border-color: rgba(124, 58, 237, 0.38) !important;
+      transform: translateY(-2px);
     }
 
     .entry-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
 
     .entry-bean-name {
-      font-size: 1.05rem;
-      font-weight: bold;
+      font-family: 'Fraunces', serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #e2e0f0;
     }
 
     .entry-meta {
       font-size: 0.78rem;
-      color: #9a7250;
-      margin-top: 2px;
+      color: #9b8ec4;
+      margin-top: 3px;
     }
 
-    /*
-      Grid of stat cells inside each entry card.
-      auto-fit + minmax means: fill the row with as many columns as fit,
-      each at least 70px wide. All 7 stats fit in one row on most screens.
-    */
     .entry-stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     .entry-stat {
-      background: #fdf6ec;
+      background: #0f0f1a;
+      border: 1px solid #2a2550;
       border-radius: 8px;
-      padding: 8px 4px;
+      padding: 9px 4px;
       text-align: center;
     }
 
     .entry-stat-label {
-      font-size: 0.62rem;
+      font-size: 0.6rem;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: #9a7250;
+      letter-spacing: 0.06em;
+      color: #9b8ec4;
       margin-bottom: 3px;
     }
 
     .entry-stat-value {
-      font-size: 0.92rem;
-      font-weight: bold;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #e2e0f0;
     }
 
-    /* The status cell in an entry card inherits from the .s-* theme above */
-    .entry-stat.status-cell {
-      background: #f0e8df;  /* default neutral; overridden by .s-* */
-    }
+    .entry-stat.status-cell { background: #252045; }
 
     .entry-notes {
       font-size: 0.85rem;
-      color: #7a5c3e;
+      color: #b8aee8;
       font-style: italic;
       padding-top: 10px;
-      border-top: 1px solid #f0e8df;
+      border-top: 1px solid #2a2550;
+      line-height: 1.5;
     }
 
-    /* Delete button inside each entry card */
     .delete-btn {
-      padding: 6px 14px;
-      font-size: 0.78rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 13px;
+      font-size: 0.75rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
       background: transparent;
-      color: #9a3b1a;
-      border: 1px solid #e0b89a;
-      border-radius: 6px;
+      color: #9b8ec4;
+      border: 1px solid #3d3570;
+      border-radius: 8px;
       cursor: pointer;
-      font-family: inherit;
-      transition: background-color 0.2s;
-      white-space: nowrap;   /* prevent the button text from wrapping */
+      transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.12s;
+      white-space: nowrap;
     }
-
     .delete-btn:hover {
-      background: #f7e0d0;
+      background: rgba(255, 100, 130, 0.12);
+      color: #ff9ab0;
+      border-color: rgba(255, 100, 130, 0.4);
     }
+    .delete-btn:active { transform: scale(0.93); }
 
-    /* Empty state — shown when the log has no entries */
     .empty-message {
       text-align: center;
-      color: #a07850;
-      padding: 32px 0;
-      font-size: 0.9rem;
+      color: #7a6aaa;
+      padding: 52px 0;
+      font-size: 0.95rem;
     }
 
-    /* ================================
-       FEEDBACK SECTION
-    ================================ */
-    .feedback-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
+    /* =====================================================================
+       JS-GENERATED FEEDBACK HTML
+    ===================================================================== */
+    .feedback-grid { display: grid; grid-template-columns: 1fr 1fr; }
 
     .feedback-col-header {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #9a7250;
-      font-weight: bold;
-      padding-bottom: 14px;
+      letter-spacing: 0.08em;
+      color: #9b8ec4;
+      font-weight: 600;
+      padding-bottom: 12px;
     }
 
-    .feedback-cell {
-      padding: 14px 16px 14px 0;
-      border-top: 1px solid #f0e8df;
-    }
-
-    .feedback-target {
-      padding: 14px 0 14px 16px;
-      border-top: 1px solid #f0e8df;
-    }
+    .feedback-cell { padding: 14px 16px 14px 0; border-top: 1px solid #2a2550; }
+    .feedback-target { padding: 14px 0 14px 16px; border-top: 1px solid #2a2550; }
 
     .feedback-metric-label {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: #9a7250;
+      letter-spacing: 0.06em;
+      color: #9b8ec4;
       margin-bottom: 5px;
     }
 
     .feedback-actual-value {
       font-size: 1rem;
-      font-weight: bold;
-      color: #3b2a1a;
+      font-weight: 600;
+      color: #e2e0f0;
       margin-right: 6px;
     }
 
     .feedback-target-label {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: #9a7250;
+      letter-spacing: 0.06em;
+      color: #9b8ec4;
       margin-bottom: 5px;
     }
 
     .feedback-target-value {
       font-size: 0.95rem;
-      font-weight: bold;
-      color: #5c3d1e;
+      font-weight: 600;
+      color: #c4b5f4;
     }
 
     .feedback-suggestion {
-      font-size: 0.82rem;
-      color: #7a5c3e;
-      margin-top: 7px;
-      line-height: 1.4;
+      font-size: 0.8rem;
+      color: #b8aee8;
+      margin-top: 6px;
+      line-height: 1.45;
       font-style: italic;
     }
 
     .feedback-perfect {
       text-align: center;
-      padding: 8px 0 4px;
-      color: #1e8449;
-      font-weight: bold;
-      font-size: 0.95rem;
+      padding: 14px 0;
+      color: #4ade80;
+      font-weight: 600;
+      font-family: 'Fraunces', serif;
+      font-size: 1.05rem;
     }
   </style>
 </head>
 
-<body>
-  <div class="container">
+<body class="bg-[#0f0f1a] text-[#e2e0f0] min-h-screen">
 
-    <h1>☕ Espresso Tracker</h1>
-    <p class="subtitle">Dial in your perfect shot.</p>
+  <!-- ===================================================================
+       HEADER
+  =================================================================== -->
+  <header class="relative overflow-hidden text-center py-14 px-5 mb-10"
+    style="background: linear-gradient(135deg, #0f0f1a 0%, #190f38 45%, #2e1065 100%);">
+    <!-- dot-grid texture -->
+    <div class="absolute inset-0 pointer-events-none"
+      style="background-image: radial-gradient(circle, rgba(167,139,250,0.18) 1px, transparent 1px); background-size: 26px 26px;"></div>
+    <!-- soft radial glow at top-center -->
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-48 pointer-events-none"
+      style="background: radial-gradient(ellipse, rgba(124,58,237,0.32) 0%, transparent 68%);"></div>
+    <div class="relative z-10">
+      <h1 class="text-[2.75rem] md:text-5xl font-bold text-white mb-3 tracking-tight"
+        style="text-shadow: 0 2px 24px rgba(124,58,237,0.45);">
+        ☕ Espresso Tracker
+      </h1>
+      <p class="text-xs text-[#a78bfa] tracking-[0.2em] uppercase font-medium">
+        Dial in your perfect shot
+      </p>
+    </div>
+  </header>
 
-    <!-- =====================================================================
-         LOG A SHOT FORM
-         All fields live inside a CSS Grid (.form-grid).
-         Fields with class "full" span both columns; others share a row.
-    ===================================================================== -->
-    <div class="card">
-      <h2>Log a Shot</h2>
 
-      <div class="form-grid">
+  <!-- ===================================================================
+       MAIN CONTAINER
+  =================================================================== -->
+  <div class="max-w-[720px] mx-auto px-4 pb-20">
+
+    <!-- LOG A SHOT CARD ================================================ -->
+    <div class="bg-[#1a1a2e] rounded-2xl p-7 mb-6 border border-[#2a2550] card-glow">
+      <h2 class="text-xl font-semibold text-[#c4b5f4] mb-6 flex items-center gap-2.5">
+        <i data-lucide="plus-circle" class="w-5 h-5 text-[#7c3aed]"></i>
+        Log a Shot
+      </h2>
+
+      <div class="grid grid-cols-2 gap-4">
 
         <!-- Bean Name — full width -->
-        <div class="form-group full">
-          <label for="bean-name">Bean Name</label>
-          <!--
-            The "for" attribute links this label to the input with the matching id.
-            Clicking the label focuses the input — good for accessibility.
-          -->
-          <input type="text" id="bean-name" placeholder="e.g. Ethiopia Yirgacheffe" maxlength="80" />
-        </div>
-
-        <!-- Roast Date — full width (optional) -->
-        <div class="form-group full">
-          <label for="roast-date">
-            Roast Date
-            <span style="font-weight:normal; text-transform:none; font-size:0.9em">(optional)</span>
+        <div class="col-span-2">
+          <label for="bean-name"
+            class="block text-[0.7rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-1.5">
+            Bean Name
           </label>
-          <!-- type="date" gives a native calendar picker -->
-          <input type="date" id="roast-date" />
+          <input type="text" id="bean-name" placeholder="e.g. Ethiopia Yirgacheffe" maxlength="80"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-[#0d0d1a] border border-[#3d3570] text-[#e2e0f0] placeholder-[#4a4070] focus:outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20 transition-all duration-200" />
         </div>
 
-        <!-- Grind Size — left column -->
-        <div class="form-group">
-          <label for="grind-size">Grind Size (clicks)</label>
-          <input type="number" id="grind-size" placeholder="e.g. 14" min="0" max="100" />
+        <!-- Roast Date — full width -->
+        <div class="col-span-2">
+          <label for="roast-date"
+            class="block text-[0.7rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-1.5">
+            Roast Date
+            <span class="normal-case font-normal text-[#5a4a7a] tracking-normal ml-1 text-xs">(optional)</span>
+          </label>
+          <input type="date" id="roast-date"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-[#0d0d1a] border border-[#3d3570] text-[#e2e0f0] focus:outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20 transition-all duration-200" />
         </div>
 
-        <!-- Dose — right column -->
-        <div class="form-group">
-          <label for="dose">Dose (g)</label>
-          <!--
-            step="0.1" lets users type one decimal place.
-            The browser will also enforce this when the up/down arrows are used.
-          -->
-          <input type="number" id="dose" placeholder="e.g. 18.0" min="0" max="99" step="0.1" />
+        <!-- Grind Size -->
+        <div>
+          <label for="grind-size"
+            class="block text-[0.7rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-1.5">
+            Grind Size (clicks)
+          </label>
+          <input type="number" id="grind-size" placeholder="e.g. 14" min="0" max="100"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-[#0d0d1a] border border-[#3d3570] text-[#e2e0f0] placeholder-[#4a4070] focus:outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20 transition-all duration-200" />
         </div>
 
-        <!-- Yield — left column -->
-        <div class="form-group">
-          <label for="yield-g">Yield (g)</label>
-          <input type="number" id="yield-g" placeholder="e.g. 36.0" min="0" max="200" step="0.1" />
+        <!-- Dose -->
+        <div>
+          <label for="dose"
+            class="block text-[0.7rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-1.5">
+            Dose (g)
+          </label>
+          <input type="number" id="dose" placeholder="e.g. 18.0" min="0" max="99" step="0.1"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-[#0d0d1a] border border-[#3d3570] text-[#e2e0f0] placeholder-[#4a4070] focus:outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20 transition-all duration-200" />
         </div>
 
-        <!-- Brew Time — right column -->
-        <div class="form-group">
-          <label for="brew-time">Brew Time (s)</label>
-          <input type="number" id="brew-time" placeholder="e.g. 28" min="0" max="120" />
+        <!-- Yield -->
+        <div>
+          <label for="yield-g"
+            class="block text-[0.7rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-1.5">
+            Yield (g)
+          </label>
+          <input type="number" id="yield-g" placeholder="e.g. 36.0" min="0" max="200" step="0.1"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-[#0d0d1a] border border-[#3d3570] text-[#e2e0f0] placeholder-[#4a4070] focus:outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20 transition-all duration-200" />
+        </div>
+
+        <!-- Brew Time -->
+        <div>
+          <label for="brew-time"
+            class="block text-[0.7rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-1.5">
+            Brew Time (s)
+          </label>
+          <input type="number" id="brew-time" placeholder="e.g. 28" min="0" max="120"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-[#0d0d1a] border border-[#3d3570] text-[#e2e0f0] placeholder-[#4a4070] focus:outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20 transition-all duration-200" />
         </div>
 
         <!-- Taste Score Slider — full width -->
-        <div class="form-group full">
-          <label for="taste-score">Taste Score</label>
-          <div class="slider-row">
-            <span class="slider-label">1</span>
-            <!--
-              type="range" renders as a draggable slider.
-              min, max, step control what values are allowed.
-              JS listens for the "input" event to update the display as it moves.
-            -->
+        <div class="col-span-2">
+          <label for="taste-score"
+            class="block text-[0.7rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-1.5">
+            Taste Score
+          </label>
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-[#9b8ec4] min-w-[14px] text-center">1</span>
             <input type="range" id="taste-score" min="1" max="10" value="5" step="1" />
-            <span class="slider-label">10</span>
-            <!-- Shows the current slider value next to the track -->
-            <span class="score-badge"><span id="score-display">5</span>/10</span>
+            <span class="text-sm text-[#9b8ec4] min-w-[14px] text-center">10</span>
+            <span class="min-w-[52px] text-center text-base font-bold text-[#c4b5f4]">
+              <span id="score-display">5</span>/10
+            </span>
           </div>
         </div>
 
-        <!-- Notes — full width, optional -->
-        <div class="form-group full">
-          <label for="notes">
+        <!-- Notes — full width -->
+        <div class="col-span-2">
+          <label for="notes"
+            class="block text-[0.7rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-1.5">
             Notes
-            <span style="font-weight:normal; text-transform:none; font-size:0.9em">(optional)</span>
+            <span class="normal-case font-normal text-[#5a4a7a] tracking-normal ml-1 text-xs">(optional)</span>
           </label>
-          <textarea id="notes" placeholder="Tasting notes, what to adjust next time…"></textarea>
+          <textarea id="notes" placeholder="Tasting notes, what to adjust next time…"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-[#0d0d1a] border border-[#3d3570] text-[#e2e0f0] placeholder-[#4a4070] focus:outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20 transition-all duration-200 resize-y min-h-[76px]"></textarea>
         </div>
 
-      </div><!-- end .form-grid -->
+      </div><!-- end form grid -->
 
-      <!-- Error messages appear here when validation fails -->
-      <p class="error-message" id="error-msg"></p>
+      <p class="text-[#ff6b8a] text-sm mt-3 min-h-[20px]" id="error-msg"></p>
 
-      <button class="btn-primary" id="add-btn">Add Shot</button>
-    </div><!-- end .card -->
+      <button id="add-btn" class="btn-add">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        Add Shot
+      </button>
+    </div><!-- end form card -->
 
 
-    <!-- =====================================================================
-         AUTO-CALCULATED STATS ROW
-         These two cards sit between the form and the log.
-         They update live as the user types — no submission needed.
-    ===================================================================== -->
-    <div class="stats-row">
+    <!-- STATS ROW ======================================================= -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
 
-      <!-- Brew Ratio card -->
       <div class="stat-card" id="ratio-card">
-        <div class="stat-card-label">Brew Ratio</div>
-        <!-- JS fills this in. Shows "--" until dose and yield are both entered. -->
-        <div class="stat-card-value" id="ratio-value">--</div>
-        <div class="stat-card-sub">yield ÷ dose</div>
+        <div class="text-[0.68rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-2">Brew Ratio</div>
+        <div class="stat-card-value text-[2rem] font-bold text-[#e2e0f0] leading-none mb-2 transition-colors duration-300" id="ratio-value">--</div>
+        <div class="text-xs text-[#9b8ec4]">yield ÷ dose</div>
       </div>
 
-      <!-- Brew Time Status card -->
       <div class="stat-card" id="time-card">
-        <div class="stat-card-label">Brew Time</div>
-        <div class="stat-card-value" id="time-value">--</div>
-        <!--
-          This pill shows the status label ("Good", "Warning", etc.).
-          JS also adds a class like "s-good" to the whole card, which
-          CSS uses to change the background, border, and text colors.
-        -->
+        <div class="text-[0.68rem] font-semibold uppercase tracking-widest text-[#9b8ec4] mb-2">Brew Time</div>
+        <div class="stat-card-value text-[2rem] font-bold text-[#e2e0f0] leading-none mb-2 transition-colors duration-300" id="time-value">--</div>
         <span class="status-pill" id="time-status">--</span>
       </div>
 
-    </div><!-- end .stats-row -->
+    </div><!-- end stats row -->
 
 
-    <!-- =====================================================================
-         FEEDBACK
-    ===================================================================== -->
-    <div id="feedback-section" class="card" style="display:none">
-      <h2>Last Shot Feedback</h2>
+    <!-- FEEDBACK SECTION ================================================ -->
+    <div id="feedback-section" class="bg-[#1a1a2e] rounded-2xl p-7 mb-6 border border-[#2a2550] card-glow" style="display:none">
+      <h2 class="text-xl font-semibold text-[#c4b5f4] mb-5 flex items-center gap-2.5">
+        <i data-lucide="bar-chart-2" class="w-5 h-5 text-[#7c3aed]"></i>
+        Last Shot Feedback
+      </h2>
       <div id="feedback-content"></div>
     </div>
 
 
-    <!-- =====================================================================
-         SHOT LOG
-    ===================================================================== -->
-    <div class="entries-header">
-      <h2>Shot Log</h2>
-      <!-- JS keeps this count in sync with the number of entries -->
-      <span class="count-badge" id="entry-count">0</span>
+    <!-- SHOT LOG ========================================================= -->
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-semibold text-[#c4b5f4] flex items-center gap-2.5">
+        <i data-lucide="scroll" class="w-5 h-5 text-[#7c3aed]"></i>
+        Shot Log
+      </h2>
+      <span class="badge border-0 text-white text-xs font-bold"
+        style="background: #7c3aed; padding: 0 12px; height: 24px; border-radius: 20px;" id="entry-count">0</span>
     </div>
 
-    <!--
-      The <ul> starts empty. JS generates a <li> for each saved entry
-      and appends it here. The list-style: none CSS removes bullet points.
-    -->
     <ul id="entry-list"></ul>
 
-  </div><!-- end .container -->
+  </div><!-- end container -->
 
 
   <script>
     // =========================================================================
     // DOM REFERENCES
-    // Cache handles to the HTML elements we'll read from or update.
-    // It's slightly more efficient than calling getElementById every time,
-    // and it keeps the code cleaner.
     // =========================================================================
 
     const beanNameInput  = document.getElementById("bean-name");
@@ -687,7 +561,6 @@
     const entryList      = document.getElementById("entry-list");
     const entryCount     = document.getElementById("entry-count");
 
-    // Stat card elements
     const ratioValue = document.getElementById("ratio-value");
     const timeCard   = document.getElementById("time-card");
     const timeValue  = document.getElementById("time-value");
@@ -696,14 +569,10 @@
 
     // =========================================================================
     // DATA HELPERS
-    // All reads/writes to localStorage go through these two functions.
-    // localStorage can only store strings, so we use JSON to convert
-    // our array of objects to/from a string format.
     // =========================================================================
 
     function loadEntries() {
       const stored = localStorage.getItem("espressoEntries");
-      // If nothing saved yet, `stored` is null — default to empty array
       return stored ? JSON.parse(stored) : [];
     }
 
@@ -714,26 +583,13 @@
 
     // =========================================================================
     // CALCULATIONS
-    // Pure functions: they take values in, return a result out, no side effects.
     // =========================================================================
 
-    /**
-     * Calculates the brew ratio as a string like "2.2".
-     * Returns null if either input is missing or zero.
-     * We store the number only (not "1:") so entries render as "1:2.2".
-     */
     function calcBrewRatio(dose, yieldG) {
       if (!dose || !yieldG || dose === 0) return null;
       return (yieldG / dose).toFixed(1);
     }
 
-    /**
-     * Returns a status label and a CSS class for a given brew time in seconds.
-     *
-     * The CSS class (e.g. "s-good") is added to the stat card element.
-     * CSS rules for .s-good then change its background, border, and text color.
-     * The same class is also added to the status cell in each entry card.
-     */
     function getBrewTimeStatus(seconds) {
       if (seconds < 20)  return { label: "Warning",  cls: "s-warning",   suggestion: "Grind finer or increase dose"      };
       if (seconds <= 24) return { label: "Okay",      cls: "s-okay",      suggestion: "Try grinding slightly finer"      };
@@ -745,8 +601,6 @@
 
     // =========================================================================
     // LIVE STATS UPDATE
-    // Called whenever dose, yield, or brew-time inputs change.
-    // Re-reads the form values and updates the two stat cards instantly.
     // =========================================================================
 
     function updateStats() {
@@ -754,19 +608,17 @@
       const yieldG   = parseFloat(yieldInput.value);
       const brewTime = parseInt(brewTimeInput.value, 10);
 
-      // — Brew Ratio —
       const ratio = calcBrewRatio(dose, yieldG);
       ratioValue.textContent = ratio ? "1:" + ratio : "--";
 
-      // — Brew Time Status —
-      // Reset to a neutral state first by removing all status classes
+      // Reset to neutral — JS sets className directly so .stat-card CSS must
+      // carry all visual properties (no Tailwind classes on this element).
       timeCard.className = "stat-card";
 
       if (brewTime > 0) {
         const { label, cls } = getBrewTimeStatus(brewTime);
         timeValue.textContent  = brewTime + "s";
         timeStatus.textContent = label;
-        // Adding the class (e.g. "s-good") triggers the CSS color change
         timeCard.classList.add(cls);
       } else {
         timeValue.textContent  = "--";
@@ -774,7 +626,6 @@
       }
     }
 
-    // Re-run updateStats whenever any of these inputs change
     [doseInput, yieldInput, brewTimeInput].forEach(function (input) {
       input.addEventListener("input", updateStats);
     });
@@ -782,16 +633,12 @@
 
     // =========================================================================
     // SLIDER FILL
-    // The browser doesn't natively fill the slider track up to the thumb.
-    // We fake this by dynamically changing the background gradient.
     // =========================================================================
 
     function updateSliderFill() {
-      // Map the 1–10 range onto 0–100%
       const pct = ((scoreInput.value - 1) / 9) * 100;
-      // Left of thumb: filled (dark brown). Right: empty (light tan).
       scoreInput.style.background =
-        "linear-gradient(to right, #6f3d14 " + pct + "%, #d4b896 " + pct + "%)";
+        "linear-gradient(to right, #7c3aed " + pct + "%, #2a2550 " + pct + "%)";
     }
 
     scoreInput.addEventListener("input", function () {
@@ -805,17 +652,15 @@
     // =========================================================================
 
     function addEntry() {
-      // Read and clean up form values
-      const beanName = beanNameInput.value.trim();
+      const beanName  = beanNameInput.value.trim();
       const roastDate = roastDateInput.value;
-      const grind    = parseInt(grindInput.value, 10);
-      const dose     = parseFloat(doseInput.value);
-      const yieldG   = parseFloat(yieldInput.value);
-      const brewTime = parseInt(brewTimeInput.value, 10);
-      const score    = parseInt(scoreInput.value, 10);
-      const notes    = notesInput.value.trim();
+      const grind     = parseInt(grindInput.value, 10);
+      const dose      = parseFloat(doseInput.value);
+      const yieldG    = parseFloat(yieldInput.value);
+      const brewTime  = parseInt(brewTimeInput.value, 10);
+      const score     = parseInt(scoreInput.value, 10);
+      const notes     = notesInput.value.trim();
 
-      // Validate required fields — stop early and show an error if any fail
       if (!beanName) {
         showError("Please enter a bean name.", beanNameInput);
         return;
@@ -837,32 +682,29 @@
         return;
       }
 
-      // All required fields valid — clear any leftover error
       errorMsg.textContent = "";
 
-      // Pre-calculate derived values so they're stored with the entry.
-      // This way we don't have to re-calculate them every time we render.
       const ratio      = calcBrewRatio(dose, yieldG);
       const timeResult = getBrewTimeStatus(brewTime);
 
       const entry = {
-        id:         Date.now(),   // millisecond timestamp — unique enough as an ID
+        id:         Date.now(),
         beanName,
         roastDate,
         grind,
         dose,
-        yieldG,                   // "yield" is a reserved JS keyword, so we use yieldG
+        yieldG,
         brewTime,
         score,
         notes,
-        ratio,                    // stored as a string like "2.2"
+        ratio,
         timeStatus: timeResult.label,
         timeCls:    timeResult.cls,
         timestamp:  new Date().toLocaleDateString(),
       };
 
       const entries = loadEntries();
-      entries.unshift(entry);     // unshift adds to the front so newest appears first
+      entries.unshift(entry);
       saveEntries(entries);
 
       renderEntries();
@@ -876,7 +718,7 @@
 
     function resetForm() {
       const entries = loadEntries();
-      const last    = entries[0];   // newest is first (added with unshift)
+      const last    = entries[0];
 
       beanNameInput.value      = last ? last.beanName  : "";
       roastDateInput.value     = last ? last.roastDate : "";
@@ -888,7 +730,7 @@
       notesInput.value         = "";
       scoreDisplay.textContent = "5";
       updateSliderFill();
-      updateStats();        // reset the stat cards back to "--"
+      updateStats();
       beanNameInput.focus();
     }
 
@@ -898,7 +740,6 @@
     // =========================================================================
 
     function deleteEntry(id) {
-      // filter() returns a NEW array with every entry EXCEPT the deleted one
       const updated = loadEntries().filter(function (e) {
         return e.id !== id;
       });
@@ -909,9 +750,6 @@
 
     // =========================================================================
     // XSS PREVENTION
-    // If a user types raw HTML tags into a field,
-    // we must display them as plain text rather than let the browser run them.
-    // This helper converts dangerous characters to their safe equivalents.
     // =========================================================================
 
     function escapeHTML(str) {
@@ -924,28 +762,23 @@
 
     // =========================================================================
     // RENDER ENTRIES
-    // Wipes and rebuilds the entire <ul> from the saved data.
-    // Called after every add or delete.
     // =========================================================================
 
     function renderEntries() {
       const entries = loadEntries();
 
-      // Keep the count badge up to date
       entryCount.textContent = entries.length;
-
-      // Clear the list before rebuilding to avoid duplicates
       entryList.innerHTML = "";
 
       if (entries.length === 0) {
         entryList.innerHTML = '<li class="empty-message">No shots logged yet. Pull your first one above!</li>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
         return;
       }
 
       entries.forEach(function (entry) {
         const li = document.createElement("li");
 
-        // Build optional lines that only appear when the data exists
         const roastLine = entry.roastDate
           ? '<div class="entry-meta">Roasted ' + escapeHTML(entry.roastDate) + "</div>"
           : "";
@@ -954,12 +787,6 @@
           ? '<div class="entry-notes">' + escapeHTML(entry.notes) + "</div>"
           : "";
 
-        /*
-          Template literals (backtick strings) let us embed variables with ${}.
-          We escape all user-supplied strings to prevent XSS.
-          The timeCls (e.g. "s-good") is generated by our own code, not the user,
-          but we still escape it as a good habit.
-        */
         li.innerHTML = `
           <div class="entry-card">
 
@@ -969,7 +796,10 @@
                 ${roastLine}
                 <div class="entry-meta">Logged ${escapeHTML(entry.timestamp)}</div>
               </div>
-              <button class="delete-btn" data-id="${entry.id}">Delete</button>
+              <button class="delete-btn" data-id="${entry.id}">
+                <i data-lucide="trash-2" style="width:13px;height:13px;flex-shrink:0"></i>
+                Delete
+              </button>
             </div>
 
             <div class="entry-stats-grid">
@@ -1008,11 +838,6 @@
           </div>
         `;
 
-        /*
-          Attach the delete handler to the button *inside* this specific li.
-          We can't use a global click handler here because we need to capture
-          the correct entry.id for each row via the closure.
-        */
         li.querySelector(".delete-btn").addEventListener("click", function () {
           deleteEntry(entry.id);
         });
@@ -1021,12 +846,14 @@
       });
 
       renderFeedback();
+
+      // Render Lucide icons injected into the dynamic HTML above
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
 
     // =========================================================================
     // FEEDBACK
-    // Analyzes the most recent entry and renders two-column suggestions.
     // =========================================================================
 
     function renderFeedback() {
@@ -1042,11 +869,9 @@
       section.style.display = "";
       const e = entries[0];
 
-      // Brew time
       const timeResult    = getBrewTimeStatus(e.brewTime);
       const timeExcellent = timeResult.cls === "s-excellent";
 
-      // Brew ratio
       const ratioNum = parseFloat(e.ratio);
       let ratioExcellent  = false;
       let ratioCls        = "";
@@ -1058,9 +883,9 @@
           ratioLabel      = "Short";
           ratioSuggestion = "Let the shot run longer or reduce dose";
         } else if (ratioNum <= 2.5) {
-          ratioCls       = "s-excellent";
-          ratioLabel     = "Excellent";
-          ratioExcellent = true;
+          ratioCls        = "s-excellent";
+          ratioLabel      = "Excellent";
+          ratioExcellent  = true;
           ratioSuggestion = "No changes needed";
         } else {
           ratioCls        = "s-warning";
@@ -1069,7 +894,6 @@
         }
       }
 
-      // Taste score
       const score = e.score;
       let scoreExcellent  = false;
       let scoreCls        = "";
@@ -1136,12 +960,10 @@
 
     // =========================================================================
     // EVENT WIRING
-    // Connect user interactions to our functions.
     // =========================================================================
 
     document.getElementById("add-btn").addEventListener("click", addEntry);
 
-    // Let the user press Enter in the bean name field to submit the form
     beanNameInput.addEventListener("keydown", function (e) {
       if (e.key === "Enter") addEntry();
     });
@@ -1149,12 +971,14 @@
 
     // =========================================================================
     // INITIALIZATION
-    // Runs once immediately when the browser loads this script.
     // =========================================================================
 
-    updateSliderFill();  // set the slider track fill for the default value of 5
-    updateStats();       // show "--" in the stat cards (nothing typed yet)
-    renderEntries();     // populate the log from whatever is saved in localStorage
+    updateSliderFill();
+    updateStats();
+    renderEntries();  // also calls lucide.createIcons() for dynamic icons
+
+    // Initialize Lucide icons in static HTML (header, form headings, add button)
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   </script>
 </body>
 </html>
